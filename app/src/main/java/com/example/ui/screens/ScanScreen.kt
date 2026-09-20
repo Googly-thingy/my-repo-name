@@ -1,0 +1,608 @@
+package com.example.ui.screens
+
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.Preview
+import androidx.camera.lifecycle.ProcessCameraProvider
+import androidx.camera.view.PreviewView
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AddAPhoto
+import androidx.compose.material.icons.filled.AutoAwesome
+import androidx.compose.material.icons.filled.CameraAlt
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Collections
+import androidx.compose.material.icons.filled.DeleteSweep
+import androidx.compose.material.icons.filled.HelpOutline
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lightbulb
+import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.RotateRight
+import androidx.compose.material.icons.filled.Speed
+import androidx.compose.material.icons.filled.ViewInAr
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.core.content.ContextCompat
+import com.example.model3d.Mesh3D
+import com.example.photogrammetry.CapturedPhoto
+import com.example.photogrammetry.ReconstructionManager
+import com.example.ui.theme.StudioAmber
+import com.example.ui.theme.StudioCyan
+import com.example.ui.theme.StudioEmerald
+import com.example.ui.theme.StudioIndigo
+import com.example.ui.theme.StudioSurface
+import com.example.ui.theme.StudioSurfaceVariant
+import kotlinx.coroutines.launch
+import kotlin.math.cos
+import kotlin.math.sin
+
+@Composable
+fun ScanScreen(
+    reconstructionManager: ReconstructionManager,
+    onMeshGenerated: (Mesh3D) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val capturedPhotos by reconstructionManager.capturedPhotos.collectAsState()
+    val isReconstructing by reconstructionManager.isReconstructing.collectAsState()
+    val progress by reconstructionManager.progress.collectAsState()
+    val qualityMetrics by reconstructionManager.qualityMetrics.collectAsState()
+
+    var currentAngleDeg by remember { mutableFloatStateOf(0f) }
+    var currentElevationDeg by remember { mutableFloatStateOf(30f) }
+    var hasCameraPermission by remember {
+        mutableStateOf(
+            ContextCompat.checkSelfPermission(context, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
+        )
+    }
+
+    val permissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        hasCameraPermission = granted
+    }
+
+    // Photo gallery batch picker
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickMultipleVisualMedia()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            reconstructionManager.addBatchPhotos(uris.size.coerceIn(12, 36))
+        }
+    }
+
+    var showTipsDialog by remember { mutableStateOf(false) }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .background(Color(0xFF090D16))
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Top Header
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = "Photogrammetry 3D Scanner",
+                    color = Color.White,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 18.sp
+                )
+                Text(
+                    text = "Turn real objects into high-quality 3D meshes",
+                    color = Color(0xFF9CA3AF),
+                    fontSize = 12.sp
+                )
+            }
+
+            IconButton(
+                onClick = { showTipsDialog = !showTipsDialog },
+                modifier = Modifier
+                    .size(36.dp)
+                    .background(StudioSurfaceVariant, CircleShape)
+                    .border(1.dp, Color(0xFF374151), CircleShape)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Lightbulb,
+                    contentDescription = "Scan Tips",
+                    tint = StudioAmber,
+                    modifier = Modifier.size(18.dp)
+                )
+            }
+        }
+
+        // Beginner Tips Card (Expandable)
+        AnimatedVisibility(visible = showTipsDialog) {
+            Surface(
+                shape = RoundedCornerShape(14.dp),
+                color = StudioSurfaceVariant,
+                border = androidx.compose.foundation.BorderStroke(1.dp, StudioAmber.copy(alpha = 0.5f)),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(
+                    modifier = Modifier.padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Text("Beginner Photogrammetry Tips:", color = StudioAmber, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                    Text("• Circle smoothly around the object at even distances (~40-60 cm)", color = Color(0xFFE5E7EB), fontSize = 11.sp)
+                    Text("• Ensure at least 60-80% overlap between adjacent exposures", color = Color(0xFFE5E7EB), fontSize = 11.sp)
+                    Text("• Avoid transparent, reflective glass, or featureless white surfaces", color = Color(0xFFE5E7EB), fontSize = 11.sp)
+                    Text("• Use soft, diffuse ambient light without harsh dynamic shadows", color = Color(0xFFE5E7EB), fontSize = 11.sp)
+                }
+            }
+        }
+
+        // Viewfinder Container with Circular Orbit Overlay
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(310.dp)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color(0xFF0F172A))
+                .border(1.dp, Color(0xFF374151), RoundedCornerShape(20.dp))
+        ) {
+            // Live Camera Viewfinder or Simulated Studio Scanning Canvas
+            if (hasCameraPermission) {
+                AndroidView(
+                    factory = { ctx ->
+                        val previewView = PreviewView(ctx)
+                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                        cameraProviderFuture.addListener({
+                            val cameraProvider = cameraProviderFuture.get()
+                            val preview = Preview.Builder().build().also {
+                                it.setSurfaceProvider(previewView.surfaceProvider)
+                            }
+                            try {
+                                cameraProvider.unbindAll()
+                                cameraProvider.bindToLifecycle(
+                                    lifecycleOwner,
+                                    CameraSelector.DEFAULT_BACK_CAMERA,
+                                    preview
+                                )
+                            } catch (e: Exception) {
+                                // Camera in use or unavailable in container
+                            }
+                        }, ContextCompat.getMainExecutor(ctx))
+                        previewView
+                    },
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            // Interactive Photogrammetry Guidance HUD Canvas (Orbit compass & Feature Points)
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
+                val center = Offset(w * 0.5f, h * 0.5f)
+                val radius = w.coerceAtMost(h) * 0.38f
+
+                // Draw central targeting reticle
+                drawCircle(
+                    color = StudioCyan.copy(alpha = 0.25f),
+                    radius = 28f,
+                    center = center,
+                    style = Stroke(width = 1.5f)
+                )
+                drawLine(
+                    color = StudioCyan.copy(alpha = 0.4f),
+                    start = Offset(center.x - 40f, center.y),
+                    end = Offset(center.x + 40f, center.y),
+                    strokeWidth = 1.2f
+                )
+                drawLine(
+                    color = StudioCyan.copy(alpha = 0.4f),
+                    start = Offset(center.x, center.y - 40f),
+                    end = Offset(center.x, center.y + 40f),
+                    strokeWidth = 1.2f
+                )
+
+                // Draw 360-degree circular orbit ring
+                drawCircle(
+                    color = Color(0x336366F1),
+                    radius = radius,
+                    center = center,
+                    style = Stroke(width = 2.5f)
+                )
+
+                // 24 Angular sector ticks around the orbit ring
+                val tickCount = 24
+                for (i in 0 until tickCount) {
+                    val angle = (i.toFloat() / tickCount) * 2f * Math.PI.toFloat()
+                    val tickAngleDeg = (i * 360f / tickCount)
+                    val pOuter = Offset(center.x + radius * cos(angle), center.y + radius * sin(angle))
+                    val pInner = Offset(center.x + (radius - 12f) * cos(angle), center.y + (radius - 12f) * sin(angle))
+
+                    // Check if this sector has been captured
+                    val isCaptured = capturedPhotos.any {
+                        val diff = kotlin.math.abs(it.angleDeg - tickAngleDeg)
+                        diff < 15f || diff > 345f
+                    }
+
+                    val tickColor = if (isCaptured) StudioEmerald else Color(0x669CA3AF)
+                    drawLine(tickColor, pInner, pOuter, strokeWidth = if (isCaptured) 3f else 1.2f)
+
+                    if (isCaptured) {
+                        drawCircle(StudioEmerald, radius = 3.5f, center = pOuter)
+                    }
+                }
+
+                // Current Camera Azimuth indicator
+                val currentRad = Math.toRadians(currentAngleDeg.toDouble()).toFloat()
+                val camPos = Offset(center.x + radius * cos(currentRad), center.y + radius * sin(currentRad))
+                drawCircle(StudioCyan, radius = 7f, center = camPos)
+                drawCircle(Color.White, radius = 3.5f, center = camPos)
+
+                // Simulated holographic SIFT/ORB feature points on the subject
+                val featureDots = listOf(
+                    Offset(center.x - 30f, center.y - 20f),
+                    Offset(center.x + 25f, center.y - 35f),
+                    Offset(center.x + 10f, center.y + 25f),
+                    Offset(center.x - 20f, center.y + 15f),
+                    Offset(center.x + 35f, center.y + 10f),
+                    Offset(center.x - 10f, center.y - 45f)
+                )
+                for (pt in featureDots) {
+                    drawCircle(StudioCyan.copy(alpha = 0.8f), radius = 2.5f, center = pt)
+                }
+            }
+
+            // Top Status Overlay (Photo count & Angle)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Black.copy(alpha = 0.7f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, StudioCyan.copy(alpha = 0.4f))
+                ) {
+                    Text(
+                        text = "Exposures: ${capturedPhotos.size} / 24",
+                        color = StudioCyan,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(8.dp),
+                    color = Color.Black.copy(alpha = 0.7f),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151))
+                ) {
+                    Text(
+                        text = "Azimuth: ${currentAngleDeg.toInt()}° • Elev: ${currentElevationDeg.toInt()}°",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
+
+            // Bottom Guidance Banner
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = Color.Black.copy(alpha = 0.8f),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151)),
+                modifier = Modifier
+                    .align(Alignment.BottomCenter)
+                    .fillMaxWidth()
+                    .padding(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.padding(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CheckCircle,
+                        contentDescription = null,
+                        tint = StudioEmerald,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Text(
+                        text = qualityMetrics.guidanceMessage,
+                        color = Color(0xFFE5E7EB),
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        // Quality Feedback Telemetry Bar (Overlap, Lighting, Stability)
+        Surface(
+            shape = RoundedCornerShape(14.dp),
+            color = StudioSurface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+                horizontalArrangement = Arrangement.SpaceAround,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Overlap
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Overlap", color = Color(0xFF9CA3AF), fontSize = 10.sp)
+                    Text("${qualityMetrics.overlapPercent}%", color = StudioCyan, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Optimal", color = StudioEmerald, fontSize = 9.sp)
+                }
+                // Lighting
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Lighting", color = Color(0xFF9CA3AF), fontSize = 10.sp)
+                    Text("Diffuse", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Low Glare", color = StudioEmerald, fontSize = 9.sp)
+                }
+                // Motion Stability
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text("Stability", color = Color(0xFF9CA3AF), fontSize = 10.sp)
+                    Text("Steady", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    Text("Sharp Focus", color = StudioEmerald, fontSize = 9.sp)
+                }
+            }
+        }
+
+        // Capture Controls & Shutter Buttons
+        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Primary Shutter: Capture Single Angle
+                Button(
+                    onClick = {
+                        reconstructionManager.addCapturedPhoto(currentAngleDeg, currentElevationDeg)
+                        // Advance angle clockwise by 15°
+                        currentAngleDeg = (currentAngleDeg + 15f) % 360f
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = StudioCyan,
+                        contentColor = Color.Black
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .testTag("capture_shutter_button")
+                ) {
+                    Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Capture Angle", fontWeight = FontWeight.Bold)
+                }
+
+                // Turntable Auto 360 Batch Capture
+                FilledTonalButton(
+                    onClick = {
+                        reconstructionManager.addBatchPhotos(16)
+                        currentAngleDeg = 0f
+                    },
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = StudioIndigo,
+                        contentColor = Color.White
+                    ),
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .testTag("auto_orbit_button")
+                ) {
+                    Icon(Icons.Default.RotateRight, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Auto 360° Scan", fontWeight = FontWeight.Bold)
+                }
+            }
+
+            // Secondary Actions: Import Multi-Photos & Clear
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                OutlinedButton(
+                    onClick = {
+                        photoPickerLauncher.launch(
+                            PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                        )
+                    },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp)
+                ) {
+                    Icon(Icons.Default.Collections, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text("Import Photos", fontSize = 12.sp)
+                }
+
+                if (capturedPhotos.isNotEmpty()) {
+                    OutlinedButton(
+                        onClick = { reconstructionManager.clearPhotos() },
+                        modifier = Modifier
+                            .weight(0.6f)
+                            .height(40.dp)
+                    ) {
+                        Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Reset", fontSize = 12.sp)
+                    }
+                }
+
+                if (!hasCameraPermission) {
+                    OutlinedButton(
+                        onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(40.dp)
+                    ) {
+                        Text("Enable Camera", fontSize = 12.sp)
+                    }
+                }
+            }
+        }
+
+        // Photogrammetry Reconstruction Card
+        Surface(
+            shape = RoundedCornerShape(16.dp),
+            color = StudioSurface,
+            border = androidx.compose.foundation.BorderStroke(1.dp, if (capturedPhotos.size >= 8) StudioCyan else Color(0xFF374151)),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column {
+                        Text("3D Mesh Reconstruction", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text(
+                            text = if (capturedPhotos.size >= 8) "Coverage sufficient to solve camera geometry" else "Need at least 8 photo angles to reconstruct",
+                            color = if (capturedPhotos.size >= 8) StudioEmerald else Color(0xFF9CA3AF),
+                            fontSize = 11.sp
+                        )
+                    }
+
+                    Icon(
+                        imageVector = Icons.Default.AutoAwesome,
+                        contentDescription = null,
+                        tint = if (capturedPhotos.size >= 8) StudioCyan else Color.Gray,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // Progress Bar if Reconstructing
+                if (isReconstructing) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(progress.stage.title, color = StudioCyan, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                            Text("${(progress.progressPercent * 100).toInt()}%", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                        }
+                        LinearProgressIndicator(
+                            progress = { progress.progressPercent },
+                            color = StudioCyan,
+                            trackColor = Color(0xFF1F2937),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(6.dp)
+                                .clip(RoundedCornerShape(3.dp))
+                        )
+                        Text(
+                            text = progress.logMessage,
+                            color = Color(0xFF9CA3AF),
+                            fontSize = 10.sp
+                        )
+                    }
+                }
+
+                // Reconstruction Action Button
+                Button(
+                    onClick = {
+                        coroutineScope.launch {
+                            reconstructionManager.runReconstruction("Photogrammetry Scan #${capturedPhotos.size}") { generatedMesh ->
+                                onMeshGenerated(generatedMesh)
+                            }
+                        }
+                    },
+                    enabled = !isReconstructing && capturedPhotos.size >= 4,
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = StudioCyan,
+                        contentColor = Color.Black
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp)
+                        .testTag("reconstruct_mesh_button")
+                ) {
+                    if (isReconstructing) {
+                        CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        Spacer(Modifier.width(8.dp))
+                        Text("Solving Multi-View Stereo...", fontWeight = FontWeight.Bold)
+                    } else {
+                        Icon(Icons.Default.ViewInAr, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = if (capturedPhotos.size >= 4) "Generate 3D Mesh (${capturedPhotos.size} Photos)" else "Capture 4+ Photos to Reconstruct",
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
