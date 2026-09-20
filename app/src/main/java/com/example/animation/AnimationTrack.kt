@@ -61,6 +61,11 @@ data class AnimationTrack(
         // Interpolate scale
         val scale = prev.scale + (next.scale - prev.scale) * easedT
 
+        // Interpolate deformation layer (Squash & Stretch, Twist, Bend)
+        val squash = prev.squashStretch + (next.squashStretch - prev.squashStretch) * easedT
+        val twist = prev.twistDeg + (next.twistDeg - prev.twistDeg) * easedT
+        val bend = prev.bendX + (next.bendX - prev.bendX) * easedT
+
         return ModelTransform(
             posX = posX,
             posY = posY,
@@ -70,7 +75,10 @@ data class AnimationTrack(
             rotZDeg = rotZ,
             scaleX = scale,
             scaleY = scale,
-            scaleZ = scale
+            scaleZ = scale,
+            squashStretch = squash,
+            twistDeg = twist,
+            bendX = bend
         )
     }
 
@@ -78,6 +86,32 @@ data class AnimationTrack(
         val updated = keyframes.filterNot { it.id == keyframe.id || kotlin.math.abs(it.timeSec - keyframe.timeSec) < 0.05f }.toMutableList()
         updated.add(keyframe)
         return copy(keyframes = updated.sortedBy { it.timeSec })
+    }
+
+    fun duplicateKeyframe(sourceId: String, newTimeSec: Float): AnimationTrack {
+        val source = keyframes.find { it.id == sourceId } ?: return this
+        val clone = source.copy(
+            id = "kf_${System.currentTimeMillis()}_${(100..999).random()}",
+            timeSec = newTimeSec.coerceIn(0f, durationSec)
+        )
+        return addOrUpdateKeyframe(clone)
+    }
+
+    fun insertBlankFrame(timeSec: Float): AnimationTrack {
+        val blank = Keyframe(
+            timeSec = timeSec.coerceIn(0f, durationSec),
+            posX = 0f,
+            posY = 0f,
+            posZ = 0f,
+            rotX = 0f,
+            rotY = 0f,
+            rotZ = 0f,
+            scale = 1f,
+            squashStretch = 0f,
+            twistDeg = 0f,
+            bendX = 0f
+        )
+        return addOrUpdateKeyframe(blank)
     }
 
     fun removeKeyframe(id: String): AnimationTrack {

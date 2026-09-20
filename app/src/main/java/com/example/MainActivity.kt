@@ -16,10 +16,10 @@ class MainActivity : ComponentActivity() {
     super.onCreate(savedInstanceState)
     enableEdgeToEdge()
     setContent {
-      MyApplicationTheme(darkTheme = true) {
+      MyApplicationTheme(darkTheme = false) {
         Surface(
           modifier = Modifier.fillMaxSize(),
-          color = StudioDarkBg
+          color = com.example.ui.theme.StudioBackground
         ) {
           MainScreen()
         }

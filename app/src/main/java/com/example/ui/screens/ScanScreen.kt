@@ -2,6 +2,7 @@ package com.example.ui.screens
 
 import android.Manifest
 import android.content.pm.PackageManager
+import android.view.ViewGroup
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
@@ -14,7 +15,6 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -70,6 +70,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -85,12 +86,20 @@ import androidx.core.content.ContextCompat
 import com.example.model3d.Mesh3D
 import com.example.photogrammetry.CapturedPhoto
 import com.example.photogrammetry.ReconstructionManager
+import com.example.ui.theme.StudioAccent
+import com.example.ui.theme.StudioAccentMuted
 import com.example.ui.theme.StudioAmber
-import com.example.ui.theme.StudioCyan
+import com.example.ui.theme.StudioAmberBg
+import com.example.ui.theme.StudioBackground
+import com.example.ui.theme.StudioBorderSubtle
 import com.example.ui.theme.StudioEmerald
-import com.example.ui.theme.StudioIndigo
-import com.example.ui.theme.StudioSurface
-import com.example.ui.theme.StudioSurfaceVariant
+import com.example.ui.theme.StudioEmeraldBg
+import com.example.ui.theme.StudioPrimary
+import com.example.ui.theme.StudioSurfaceMuted
+import com.example.ui.theme.StudioSurfaceWhite
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.TextTertiary
 import kotlinx.coroutines.launch
 import kotlin.math.cos
 import kotlin.math.sin
@@ -135,10 +144,22 @@ fun ScanScreen(
 
     var showTipsDialog by remember { mutableStateOf(false) }
 
+    // Cleanly unbind camera when navigating away or disposing composable to avoid BufferQueue abandoned errors
+    DisposableEffect(lifecycleOwner) {
+        onDispose {
+            try {
+                val cameraProvider = ProcessCameraProvider.getInstance(context).get()
+                cameraProvider.unbindAll()
+            } catch (e: Exception) {
+                // Ignore if camera provider not initialized
+            }
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF090D16))
+            .background(StudioBackground)
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -152,13 +173,13 @@ fun ScanScreen(
             Column {
                 Text(
                     text = "Photogrammetry 3D Scanner",
-                    color = Color.White,
+                    color = TextPrimary,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
+                    fontSize = 20.sp
                 )
                 Text(
                     text = "Turn real objects into high-quality 3D meshes",
-                    color = Color(0xFF9CA3AF),
+                    color = TextSecondary,
                     fontSize = 12.sp
                 )
             }
@@ -166,9 +187,9 @@ fun ScanScreen(
             IconButton(
                 onClick = { showTipsDialog = !showTipsDialog },
                 modifier = Modifier
-                    .size(36.dp)
-                    .background(StudioSurfaceVariant, CircleShape)
-                    .border(1.dp, Color(0xFF374151), CircleShape)
+                    .size(38.dp)
+                    .background(if (showTipsDialog) StudioAmberBg else StudioSurfaceWhite, CircleShape)
+                    .shadow(1.dp, CircleShape, spotColor = Color(0x0F0F172A))
             ) {
                 Icon(
                     imageVector = Icons.Default.Lightbulb,
@@ -183,19 +204,20 @@ fun ScanScreen(
         AnimatedVisibility(visible = showTipsDialog) {
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = StudioSurfaceVariant,
-                border = androidx.compose.foundation.BorderStroke(1.dp, StudioAmber.copy(alpha = 0.5f)),
-                modifier = Modifier.fillMaxWidth()
+                color = StudioAmberBg,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(2.dp, RoundedCornerShape(14.dp), spotColor = Color(0x0A0F172A))
             ) {
                 Column(
                     modifier = Modifier.padding(14.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Text("Beginner Photogrammetry Tips:", color = StudioAmber, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                    Text("• Circle smoothly around the object at even distances (~40-60 cm)", color = Color(0xFFE5E7EB), fontSize = 11.sp)
-                    Text("• Ensure at least 60-80% overlap between adjacent exposures", color = Color(0xFFE5E7EB), fontSize = 11.sp)
-                    Text("• Avoid transparent, reflective glass, or featureless white surfaces", color = Color(0xFFE5E7EB), fontSize = 11.sp)
-                    Text("• Use soft, diffuse ambient light without harsh dynamic shadows", color = Color(0xFFE5E7EB), fontSize = 11.sp)
+                    Text("• Circle smoothly around the object at even distances (~40-60 cm)", color = TextPrimary, fontSize = 12.sp)
+                    Text("• Ensure at least 60-80% overlap between adjacent exposures", color = TextPrimary, fontSize = 12.sp)
+                    Text("• Avoid transparent, reflective glass, or featureless white surfaces", color = TextPrimary, fontSize = 12.sp)
+                    Text("• Use soft, diffuse ambient light without harsh dynamic shadows", color = TextPrimary, fontSize = 12.sp)
                 }
             }
         }
@@ -205,36 +227,95 @@ fun ScanScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(310.dp)
+                .shadow(4.dp, RoundedCornerShape(20.dp), spotColor = Color(0x150F172A))
                 .clip(RoundedCornerShape(20.dp))
                 .background(Color(0xFF0F172A))
-                .border(1.dp, Color(0xFF374151), RoundedCornerShape(20.dp))
         ) {
-            // Live Camera Viewfinder or Simulated Studio Scanning Canvas
+            // Live Rear Camera Viewfinder or Permission Prompt
             if (hasCameraPermission) {
                 AndroidView(
                     factory = { ctx ->
-                        val previewView = PreviewView(ctx)
-                        val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
-                        cameraProviderFuture.addListener({
-                            val cameraProvider = cameraProviderFuture.get()
-                            val preview = Preview.Builder().build().also {
-                                it.setSurfaceProvider(previewView.surfaceProvider)
-                            }
-                            try {
-                                cameraProvider.unbindAll()
-                                cameraProvider.bindToLifecycle(
-                                    lifecycleOwner,
-                                    CameraSelector.DEFAULT_BACK_CAMERA,
-                                    preview
-                                )
-                            } catch (e: Exception) {
-                                // Camera in use or unavailable in container
-                            }
-                        }, ContextCompat.getMainExecutor(ctx))
-                        previewView
+                        PreviewView(ctx).apply {
+                            // Use COMPATIBLE mode (TextureView) to prevent SurfaceView BufferQueue abandoned errors in Compose
+                            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+                            scaleType = PreviewView.ScaleType.FILL_CENTER
+                            layoutParams = ViewGroup.LayoutParams(
+                                ViewGroup.LayoutParams.MATCH_PARENT,
+                                ViewGroup.LayoutParams.MATCH_PARENT
+                            )
+                        }.also { previewView ->
+                            val cameraProviderFuture = ProcessCameraProvider.getInstance(ctx)
+                            cameraProviderFuture.addListener({
+                                try {
+                                    val cameraProvider = cameraProviderFuture.get()
+                                    val preview = Preview.Builder().build().also {
+                                        it.setSurfaceProvider(previewView.surfaceProvider)
+                                    }
+                                    cameraProvider.unbindAll()
+                                    // Strictly enforce DEFAULT_BACK_CAMERA for photogrammetry capture
+                                    cameraProvider.bindToLifecycle(
+                                        lifecycleOwner,
+                                        CameraSelector.DEFAULT_BACK_CAMERA,
+                                        preview
+                                    )
+                                } catch (e: Exception) {
+                                    // Camera in use or running in emulator
+                                }
+                            }, ContextCompat.getMainExecutor(ctx))
+                        }
+                    },
+                    onRelease = { previewView ->
+                        try {
+                            val cameraProvider = ProcessCameraProvider.getInstance(previewView.context).get()
+                            cameraProvider.unbindAll()
+                        } catch (e: Exception) {
+                            // Ignore
+                        }
                     },
                     modifier = Modifier.fillMaxSize()
                 )
+            } else {
+                // Permission Request Callout Overlay
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.CameraAlt,
+                        contentDescription = null,
+                        tint = StudioAccent,
+                        modifier = Modifier.size(40.dp)
+                    )
+                    Spacer(Modifier.height(10.dp))
+                    Text(
+                        text = "Rear Camera Access Required",
+                        color = Color.White,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp
+                    )
+                    Text(
+                        text = "Photogrammetry requires the rear camera sensor to capture accurate geometric depth & feature parallax.",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 11.sp,
+                        modifier = Modifier.padding(vertical = 6.dp),
+                        textAlign = androidx.compose.ui.text.style.TextAlign.Center
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Button(
+                        onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = StudioAccent,
+                            contentColor = Color.White
+                        ),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.testTag("request_camera_permission_button")
+                    ) {
+                        Text("Enable Rear Camera", fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                    }
+                }
             }
 
             // Interactive Photogrammetry Guidance HUD Canvas (Orbit compass & Feature Points)
@@ -246,19 +327,19 @@ fun ScanScreen(
 
                 // Draw central targeting reticle
                 drawCircle(
-                    color = StudioCyan.copy(alpha = 0.25f),
+                    color = Color.White.copy(alpha = 0.3f),
                     radius = 28f,
                     center = center,
                     style = Stroke(width = 1.5f)
                 )
                 drawLine(
-                    color = StudioCyan.copy(alpha = 0.4f),
+                    color = Color.White.copy(alpha = 0.5f),
                     start = Offset(center.x - 40f, center.y),
                     end = Offset(center.x + 40f, center.y),
                     strokeWidth = 1.2f
                 )
                 drawLine(
-                    color = StudioCyan.copy(alpha = 0.4f),
+                    color = Color.White.copy(alpha = 0.5f),
                     start = Offset(center.x, center.y - 40f),
                     end = Offset(center.x, center.y + 40f),
                     strokeWidth = 1.2f
@@ -266,7 +347,7 @@ fun ScanScreen(
 
                 // Draw 360-degree circular orbit ring
                 drawCircle(
-                    color = Color(0x336366F1),
+                    color = Color.White.copy(alpha = 0.2f),
                     radius = radius,
                     center = center,
                     style = Stroke(width = 2.5f)
@@ -286,7 +367,7 @@ fun ScanScreen(
                         diff < 15f || diff > 345f
                     }
 
-                    val tickColor = if (isCaptured) StudioEmerald else Color(0x669CA3AF)
+                    val tickColor = if (isCaptured) StudioEmerald else Color.White.copy(alpha = 0.35f)
                     drawLine(tickColor, pInner, pOuter, strokeWidth = if (isCaptured) 3f else 1.2f)
 
                     if (isCaptured) {
@@ -297,7 +378,7 @@ fun ScanScreen(
                 // Current Camera Azimuth indicator
                 val currentRad = Math.toRadians(currentAngleDeg.toDouble()).toFloat()
                 val camPos = Offset(center.x + radius * cos(currentRad), center.y + radius * sin(currentRad))
-                drawCircle(StudioCyan, radius = 7f, center = camPos)
+                drawCircle(StudioAccent, radius = 7f, center = camPos)
                 drawCircle(Color.White, radius = 3.5f, center = camPos)
 
                 // Simulated holographic SIFT/ORB feature points on the subject
@@ -310,11 +391,11 @@ fun ScanScreen(
                     Offset(center.x - 10f, center.y - 45f)
                 )
                 for (pt in featureDots) {
-                    drawCircle(StudioCyan.copy(alpha = 0.8f), radius = 2.5f, center = pt)
+                    drawCircle(StudioAccent.copy(alpha = 0.8f), radius = 2.5f, center = pt)
                 }
             }
 
-            // Top Status Overlay (Photo count & Angle)
+            // Top Status Overlay (Photo count, Rear Camera Badge, & Angle)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -322,27 +403,52 @@ fun ScanScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = Color.Black.copy(alpha = 0.7f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, StudioCyan.copy(alpha = 0.4f))
-                ) {
-                    Text(
-                        text = "Exposures: ${capturedPhotos.size} / 24",
-                        color = StudioCyan,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                    )
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color.Black.copy(alpha = 0.65f)
+                    ) {
+                        Text(
+                            text = "Exposures: ${capturedPhotos.size} / 24",
+                            color = Color.White,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                        )
+                    }
+
+                    if (hasCameraPermission) {
+                        Surface(
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.Black.copy(alpha = 0.65f)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(6.dp)
+                                        .background(StudioEmerald, CircleShape)
+                                )
+                                Text(
+                                    text = "REAR CAM",
+                                    color = StudioEmerald,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 10.sp
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Surface(
                     shape = RoundedCornerShape(8.dp),
-                    color = Color.Black.copy(alpha = 0.7f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151))
+                    color = Color.Black.copy(alpha = 0.65f)
                 ) {
                     Text(
-                        text = "Azimuth: ${currentAngleDeg.toInt()}° • Elev: ${currentElevationDeg.toInt()}°",
+                        text = "Azimuth: ${currentAngleDeg.toInt()}°",
                         color = Color.White,
                         fontSize = 11.sp,
                         modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -353,8 +459,7 @@ fun ScanScreen(
             // Bottom Guidance Banner
             Surface(
                 shape = RoundedCornerShape(12.dp),
-                color = Color.Black.copy(alpha = 0.8f),
-                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151)),
+                color = Color.Black.copy(alpha = 0.75f),
                 modifier = Modifier
                     .align(Alignment.BottomCenter)
                     .fillMaxWidth()
@@ -373,7 +478,7 @@ fun ScanScreen(
                     )
                     Text(
                         text = qualityMetrics.guidanceMessage,
-                        color = Color(0xFFE5E7EB),
+                        color = Color.White,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -384,34 +489,35 @@ fun ScanScreen(
         // Quality Feedback Telemetry Bar (Overlap, Lighting, Stability)
         Surface(
             shape = RoundedCornerShape(14.dp),
-            color = StudioSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151)),
-            modifier = Modifier.fillMaxWidth()
+            color = StudioSurfaceWhite,
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(2.dp, RoundedCornerShape(14.dp), spotColor = Color(0x0A0F172A))
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(12.dp),
+                    .padding(14.dp),
                 horizontalArrangement = Arrangement.SpaceAround,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Overlap
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Overlap", color = Color(0xFF9CA3AF), fontSize = 10.sp)
-                    Text("${qualityMetrics.overlapPercent}%", color = StudioCyan, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("Optimal", color = StudioEmerald, fontSize = 9.sp)
+                    Text("Overlap", color = TextTertiary, fontSize = 11.sp)
+                    Text("${qualityMetrics.overlapPercent}%", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("Optimal", color = StudioEmerald, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                 }
                 // Lighting
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Lighting", color = Color(0xFF9CA3AF), fontSize = 10.sp)
-                    Text("Diffuse", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("Low Glare", color = StudioEmerald, fontSize = 9.sp)
+                    Text("Lighting", color = TextTertiary, fontSize = 11.sp)
+                    Text("Diffuse", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("Low Glare", color = StudioEmerald, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                 }
                 // Motion Stability
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text("Stability", color = Color(0xFF9CA3AF), fontSize = 10.sp)
-                    Text("Steady", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                    Text("Sharp Focus", color = StudioEmerald, fontSize = 9.sp)
+                    Text("Stability", color = TextTertiary, fontSize = 11.sp)
+                    Text("Steady", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    Text("Sharp Focus", color = StudioEmerald, fontSize = 10.sp, fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -430,9 +536,10 @@ fun ScanScreen(
                         currentAngleDeg = (currentAngleDeg + 15f) % 360f
                     },
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = StudioCyan,
-                        contentColor = Color.Black
+                        containerColor = StudioPrimary,
+                        contentColor = Color.White
                     ),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
@@ -450,9 +557,10 @@ fun ScanScreen(
                         currentAngleDeg = 0f
                     },
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = StudioIndigo,
-                        contentColor = Color.White
+                        containerColor = StudioAccentMuted,
+                        contentColor = StudioPrimary
                     ),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .weight(1f)
                         .height(48.dp)
@@ -475,36 +583,42 @@ fun ScanScreen(
                             PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
                         )
                     },
+                    shape = RoundedCornerShape(12.dp),
+                    border = androidx.compose.foundation.BorderStroke(1.dp, StudioBorderSubtle),
                     modifier = Modifier
                         .weight(1f)
-                        .height(40.dp)
+                        .height(42.dp)
                 ) {
-                    Icon(Icons.Default.Collections, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Collections, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Import Photos", fontSize = 12.sp)
+                    Text("Import Photos", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                 }
 
                 if (capturedPhotos.isNotEmpty()) {
                     OutlinedButton(
                         onClick = { reconstructionManager.clearPhotos() },
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, StudioBorderSubtle),
                         modifier = Modifier
                             .weight(0.6f)
-                            .height(40.dp)
+                            .height(42.dp)
                     ) {
-                        Icon(Icons.Default.RestartAlt, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Icon(Icons.Default.RestartAlt, contentDescription = null, tint = TextSecondary, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
-                        Text("Reset", fontSize = 12.sp)
+                        Text("Reset", color = TextSecondary, fontSize = 12.sp)
                     }
                 }
 
                 if (!hasCameraPermission) {
                     OutlinedButton(
                         onClick = { permissionLauncher.launch(Manifest.permission.CAMERA) },
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, StudioBorderSubtle),
                         modifier = Modifier
                             .weight(1f)
-                            .height(40.dp)
+                            .height(42.dp)
                     ) {
-                        Text("Enable Camera", fontSize = 12.sp)
+                        Text("Enable Camera", color = TextPrimary, fontSize = 12.sp)
                     }
                 }
             }
@@ -513,9 +627,10 @@ fun ScanScreen(
         // Photogrammetry Reconstruction Card
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = StudioSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, if (capturedPhotos.size >= 8) StudioCyan else Color(0xFF374151)),
-            modifier = Modifier.fillMaxWidth()
+            color = StudioSurfaceWhite,
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(2.dp, RoundedCornerShape(16.dp), spotColor = Color(0x0A0F172A))
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
@@ -527,10 +642,10 @@ fun ScanScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Column {
-                        Text("3D Mesh Reconstruction", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        Text("3D Mesh Reconstruction", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                         Text(
                             text = if (capturedPhotos.size >= 8) "Coverage sufficient to solve camera geometry" else "Need at least 8 photo angles to reconstruct",
-                            color = if (capturedPhotos.size >= 8) StudioEmerald else Color(0xFF9CA3AF),
+                            color = if (capturedPhotos.size >= 8) StudioEmerald else TextSecondary,
                             fontSize = 11.sp
                         )
                     }
@@ -538,7 +653,7 @@ fun ScanScreen(
                     Icon(
                         imageVector = Icons.Default.AutoAwesome,
                         contentDescription = null,
-                        tint = if (capturedPhotos.size >= 8) StudioCyan else Color.Gray,
+                        tint = if (capturedPhotos.size >= 8) StudioAccent else TextTertiary,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -550,13 +665,13 @@ fun ScanScreen(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            Text(progress.stage.title, color = StudioCyan, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
-                            Text("${(progress.progressPercent * 100).toInt()}%", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                            Text(progress.stage.title, color = StudioAccent, fontWeight = FontWeight.SemiBold, fontSize = 12.sp)
+                            Text("${(progress.progressPercent * 100).toInt()}%", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                         }
                         LinearProgressIndicator(
                             progress = { progress.progressPercent },
-                            color = StudioCyan,
-                            trackColor = Color(0xFF1F2937),
+                            color = StudioAccent,
+                            trackColor = Color(0xFFE2E8F0),
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .height(6.dp)
@@ -564,7 +679,7 @@ fun ScanScreen(
                         )
                         Text(
                             text = progress.logMessage,
-                            color = Color(0xFF9CA3AF),
+                            color = TextSecondary,
                             fontSize = 10.sp
                         )
                     }
@@ -581,16 +696,17 @@ fun ScanScreen(
                     },
                     enabled = !isReconstructing && capturedPhotos.size >= 4,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = StudioCyan,
-                        contentColor = Color.Black
+                        containerColor = StudioPrimary,
+                        contentColor = Color.White
                     ),
+                    shape = RoundedCornerShape(12.dp),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(48.dp)
                         .testTag("reconstruct_mesh_button")
                 ) {
                     if (isReconstructing) {
-                        CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.width(8.dp))
                         Text("Solving Multi-View Stereo...", fontWeight = FontWeight.Bold)
                     } else {

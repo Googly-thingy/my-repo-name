@@ -1,5 +1,6 @@
 package com.example.ui.screens
 
+import android.content.Context
 import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -24,6 +25,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -35,9 +37,13 @@ import com.example.data.SavedProject
 import com.example.model3d.Mesh3D
 import com.example.model3d.ModelParsers
 import com.example.photogrammetry.ReconstructionManager
-import com.example.ui.theme.StudioCyan
-import com.example.ui.theme.StudioDarkBg
-import com.example.ui.theme.StudioSurface
+import com.example.ui.components.AnimationTutorialDialog
+import com.example.ui.theme.StudioAccent
+import com.example.ui.theme.StudioBackground
+import com.example.ui.theme.StudioPrimary
+import com.example.ui.theme.StudioSurfaceWhite
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextTertiary
 import kotlinx.coroutines.launch
 
 enum class StudioTab(val title: String, val icon: ImageVector) {
@@ -55,6 +61,10 @@ fun MainScreen(
     val coroutineScope = rememberCoroutineScope()
     val db = remember { AppDatabase.getInstance(context) }
     val projectDao = remember { db.projectDao() }
+
+    val prefs = remember { context.getSharedPreferences("app_settings", Context.MODE_PRIVATE) }
+    val hasSeenTutorial = remember { prefs.getBoolean("has_seen_animation_tutorial_v1", false) }
+    var showTutorialDialog by remember { mutableStateOf(!hasSeenTutorial) }
 
     val savedProjects by projectDao.getAllProjects().collectAsState(initial = emptyList())
 
@@ -77,12 +87,14 @@ fun MainScreen(
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
-        containerColor = StudioDarkBg,
+        containerColor = StudioBackground,
         bottomBar = {
             NavigationBar(
-                containerColor = StudioSurface,
-                tonalElevation = 8.dp,
-                modifier = Modifier.testTag("main_navigation_bar")
+                containerColor = StudioSurfaceWhite,
+                tonalElevation = 0.dp,
+                modifier = Modifier
+                    .shadow(8.dp, spotColor = Color(0x120F172A))
+                    .testTag("main_navigation_bar")
             ) {
                 StudioTab.values().forEach { tab ->
                     val isSelected = selectedTab == tab
@@ -98,15 +110,16 @@ fun MainScreen(
                         label = {
                             Text(
                                 text = tab.title,
-                                fontSize = 11.sp
+                                fontSize = 11.sp,
+                                fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.SemiBold else androidx.compose.ui.text.font.FontWeight.Normal
                             )
                         },
                         colors = NavigationBarItemDefaults.colors(
-                            selectedIconColor = Color.Black,
-                            selectedTextColor = StudioCyan,
-                            indicatorColor = StudioCyan,
-                            unselectedIconColor = Color(0xFF9CA3AF),
-                            unselectedTextColor = Color(0xFF9CA3AF)
+                            selectedIconColor = Color.White,
+                            selectedTextColor = StudioPrimary,
+                            indicatorColor = StudioPrimary,
+                            unselectedIconColor = TextTertiary,
+                            unselectedTextColor = TextTertiary
                         ),
                         modifier = Modifier.testTag("nav_tab_${tab.name.lowercase()}")
                     )
@@ -200,7 +213,8 @@ fun MainScreen(
                     AnimateScreen(
                         currentMesh = currentMesh,
                         modelLibrary = modelLibrary,
-                        onSelectMesh = { currentMesh = it }
+                        onSelectMesh = { currentMesh = it },
+                        onOpenTutorial = { showTutorialDialog = true }
                     )
                 }
 
@@ -226,6 +240,16 @@ fun MainScreen(
                     )
                 }
             }
+        }
+
+        // Detailed Animation Tutorial Dialog on first launch or via help button
+        if (showTutorialDialog) {
+            AnimationTutorialDialog(
+                onDismiss = {
+                    showTutorialDialog = false
+                    prefs.edit().putBoolean("has_seen_animation_tutorial_v1", true).apply()
+                }
+            )
         }
     }
 }

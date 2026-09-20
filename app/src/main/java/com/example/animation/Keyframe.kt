@@ -9,8 +9,10 @@ import kotlin.math.sin
 enum class EasingType(val label: String) {
     SMOOTH("Smooth (Ease In-Out)"),
     LINEAR("Linear (Constant)"),
-    BOUNCE("Bounce"),
-    ELASTIC("Elastic Spring")
+    BOUNCE("Bounce (Cartoony)"),
+    ELASTIC("Elastic Spring"),
+    STEP("Step (Stop-Motion Frame)"),
+    ANTICIPATION("Anticipation (Wind-Up)")
 }
 
 data class Keyframe(
@@ -23,6 +25,10 @@ data class Keyframe(
     val rotY: Float = 0f,
     val rotZ: Float = 0f,
     val scale: Float = 1f,
+    // FlipaClip 3D Deformation Layer
+    val squashStretch: Float = 0f, // -0.8 (squash) to +1.5 (stretch)
+    val twistDeg: Float = 0f,
+    val bendX: Float = 0f,
     val easing: EasingType = EasingType.SMOOTH
 ) {
     fun toModelTransform(): ModelTransform =
@@ -35,7 +41,10 @@ data class Keyframe(
             rotZDeg = rotZ,
             scaleX = scale,
             scaleY = scale,
-            scaleZ = scale
+            scaleZ = scale,
+            squashStretch = squashStretch,
+            twistDeg = twistDeg,
+            bendX = bendX
         )
 
     companion object {
@@ -43,8 +52,18 @@ data class Keyframe(
             val clamped = t.coerceIn(0f, 1f)
             return when (type) {
                 EasingType.LINEAR -> clamped
+                EasingType.STEP -> if (clamped < 1.0f) 0f else 1f
+                EasingType.ANTICIPATION -> {
+                    // Back ease in-out
+                    val c1 = 1.70158f
+                    val c2 = c1 * 1.525f
+                    if (clamped < 0.5f) {
+                        ((2f * clamped).pow(2) * ((c2 + 1f) * 2f * clamped - c2)) / 2f
+                    } else {
+                        ((2f * clamped - 2f).pow(2) * ((c2 + 1f) * (clamped * 2f - 2f) + c2) + 2f) / 2f
+                    }
+                }
                 EasingType.SMOOTH -> {
-                    // Smoothstep / cosine ease in-out
                     0.5f * (1f - cos(clamped * PI.toFloat()))
                 }
                 EasingType.BOUNCE -> {

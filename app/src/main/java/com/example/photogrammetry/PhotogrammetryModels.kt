@@ -1,12 +1,18 @@
 package com.example.photogrammetry
 
+import android.graphics.Bitmap
+
 data class CapturedPhoto(
     val id: String,
     val angleDeg: Float,
     val elevationDeg: Float,
     val timestamp: Long = System.currentTimeMillis(),
     val featurePointsCount: Int = (280..650).random(),
-    val overlapPercent: Int = (75..92).random()
+    val overlapPercent: Int = (75..92).random(),
+    val thumbnailBitmap: Bitmap? = null,
+    val luminance: Float = 0.5f,
+    val sharpness: Float = 0.85f,
+    val dominantColorHex: Long = 0xFFD4AF37
 )
 
 enum class ReconstructionStage(val title: String, val description: String) {
@@ -35,3 +41,4 @@ data class ScanQualityMetrics(
     val distanceOk: Boolean = true,
     val guidanceMessage: String = "Good position! Keep circling around the object."
 )
+

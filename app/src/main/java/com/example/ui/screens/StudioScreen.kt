@@ -53,6 +53,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
@@ -65,12 +66,19 @@ import com.example.model3d.Mesh3D
 import com.example.model3d.ModelParsers
 import com.example.ui.components.ExportDialog
 import com.example.ui.components.Viewport3D
+import com.example.ui.theme.StudioAccent
+import com.example.ui.theme.StudioAccentMuted
 import com.example.ui.theme.StudioAmber
-import com.example.ui.theme.StudioCyan
+import com.example.ui.theme.StudioBackground
+import com.example.ui.theme.StudioBorderSubtle
 import com.example.ui.theme.StudioEmerald
-import com.example.ui.theme.StudioIndigo
-import com.example.ui.theme.StudioSurface
-import com.example.ui.theme.StudioSurfaceVariant
+import com.example.ui.theme.StudioEmeraldBg
+import com.example.ui.theme.StudioPrimary
+import com.example.ui.theme.StudioSurfaceMuted
+import com.example.ui.theme.StudioSurfaceWhite
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.TextTertiary
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -122,7 +130,7 @@ fun StudioScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF090D16))
+            .background(StudioBackground)
             .padding(16.dp)
             .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -136,35 +144,36 @@ fun StudioScreen(
             Column {
                 Text(
                     text = "3D Mesh Studio",
-                    color = Color.White,
+                    color = TextPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 18.sp
                 )
                 Text(
                     text = "Inspect, explore, and export 3D geometry",
-                    color = Color(0xFF9CA3AF),
+                    color = TextSecondary,
                     fontSize = 12.sp
                 )
             }
 
             // Quick Import Button
-            Button(
+            Surface(
                 onClick = {
                     filePickerLauncher.launch(arrayOf("*/*", "application/octet-stream", "text/plain"))
                 },
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = StudioCyan.copy(alpha = 0.2f),
-                    contentColor = StudioCyan
-                ),
-                border = androidx.compose.foundation.BorderStroke(1.dp, StudioCyan),
-                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 12.dp, vertical = 6.dp),
+                shape = RoundedCornerShape(12.dp),
+                color = StudioSurfaceWhite,
                 modifier = Modifier
-                    .height(36.dp)
+                    .shadow(2.dp, RoundedCornerShape(12.dp), spotColor = Color(0x0F0F172A))
                     .testTag("import_model_button")
             ) {
-                Icon(Icons.Default.FileUpload, contentDescription = null, modifier = Modifier.size(16.dp))
-                Spacer(Modifier.width(6.dp))
-                Text("Import 3D", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(Icons.Default.FileUpload, contentDescription = null, tint = StudioPrimary, modifier = Modifier.size(16.dp))
+                    Text("Import 3D", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
 
@@ -173,6 +182,7 @@ fun StudioScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(340.dp)
+                .clip(RoundedCornerShape(16.dp))
         ) {
             Viewport3D(
                 mesh = currentMesh,
@@ -183,13 +193,14 @@ fun StudioScreen(
         // Model Information & Actions Card
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = StudioSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151)),
-            modifier = Modifier.fillMaxWidth()
+            color = StudioSurfaceWhite,
+            modifier = Modifier
+                .fillMaxWidth()
+                .shadow(4.dp, RoundedCornerShape(16.dp), spotColor = Color(0x0D0F172A))
         ) {
             Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                modifier = Modifier.padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(14.dp)
             ) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -198,24 +209,23 @@ fun StudioScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(currentMesh.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                            Text(currentMesh.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 16.sp)
                             if (currentMesh.isScanned) {
                                 Surface(
-                                    shape = RoundedCornerShape(4.dp),
-                                    color = StudioEmerald.copy(alpha = 0.2f),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, StudioEmerald)
+                                    shape = RoundedCornerShape(6.dp),
+                                    color = StudioEmeraldBg
                                 ) {
                                     Text(
                                         "SCAN",
                                         color = StudioEmerald,
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
-                                        modifier = Modifier.padding(horizontal = 5.dp, vertical = 1.dp)
+                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
                                     )
                                 }
                             }
                         }
-                        Text(currentMesh.description, color = Color(0xFF9CA3AF), fontSize = 11.sp)
+                        Text(currentMesh.description, color = TextSecondary, fontSize = 12.sp)
                     }
 
                     // Save Project Button
@@ -226,14 +236,13 @@ fun StudioScreen(
                         },
                         modifier = Modifier
                             .size(38.dp)
-                            .background(StudioSurfaceVariant, CircleShape)
-                            .border(1.dp, Color(0xFF374151), CircleShape)
+                            .background(if (saveSuccessNotification) StudioEmeraldBg else StudioSurfaceMuted, CircleShape)
                             .testTag("save_project_button")
                     ) {
                         Icon(
                             imageVector = if (saveSuccessNotification) Icons.Default.Check else Icons.Default.Save,
                             contentDescription = "Save project",
-                            tint = if (saveSuccessNotification) StudioEmerald else Color.White,
+                            tint = if (saveSuccessNotification) StudioEmerald else StudioPrimary,
                             modifier = Modifier.size(18.dp)
                         )
                     }
@@ -243,26 +252,26 @@ fun StudioScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clip(RoundedCornerShape(10.dp))
-                        .background(Color(0xFF090D16))
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(StudioSurfaceMuted)
                         .padding(12.dp),
                     horizontalArrangement = Arrangement.SpaceAround
                 ) {
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Triangles", color = Color(0xFF9CA3AF), fontSize = 10.sp)
-                        Text("${currentMesh.polygonCount}", color = StudioCyan, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Triangles", color = TextSecondary, fontSize = 11.sp)
+                        Text("${currentMesh.polygonCount}", color = StudioPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Vertices", color = Color(0xFF9CA3AF), fontSize = 10.sp)
-                        Text("${currentMesh.vertexCount}", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        Text("Vertices", color = TextSecondary, fontSize = 11.sp)
+                        Text("${currentMesh.vertexCount}", color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text("Bounding Span", color = Color(0xFF9CA3AF), fontSize = 10.sp)
+                        Text("Bounding Span", color = TextSecondary, fontSize = 11.sp)
                         Text(
                             String.format(java.util.Locale.US, "%.1f units", currentMesh.bounds.radius * 2f),
-                            color = Color.White,
+                            color = TextPrimary,
                             fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp
+                            fontSize = 14.sp
                         )
                     }
                 }
@@ -275,9 +284,10 @@ fun StudioScreen(
                     Button(
                         onClick = onNavigateToAnimate,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = StudioCyan,
-                            contentColor = Color.Black
+                            containerColor = StudioPrimary,
+                            contentColor = Color.White
                         ),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .weight(1f)
                             .height(44.dp)
@@ -290,20 +300,22 @@ fun StudioScreen(
 
                     OutlinedButton(
                         onClick = { showExportDialog = true },
+                        shape = RoundedCornerShape(12.dp),
+                        border = androidx.compose.foundation.BorderStroke(1.dp, StudioBorderSubtle),
                         modifier = Modifier
                             .weight(1f)
                             .height(44.dp)
                             .testTag("export_mesh_dialog_button")
                     ) {
-                        Icon(Icons.Default.FileDownload, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Icon(Icons.Default.FileDownload, contentDescription = null, tint = TextPrimary, modifier = Modifier.size(18.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Export Mesh", fontWeight = FontWeight.Bold)
+                        Text("Export Mesh", color = TextPrimary, fontWeight = FontWeight.Bold)
                     }
                 }
             }
         }
 
-        // Variety of 3D Models Carousel (User request: "Add options to import a variety of 3d models for animation")
+        // Variety of 3D Models Carousel
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -312,13 +324,13 @@ fun StudioScreen(
             ) {
                 Text(
                     text = "3D Models Library",
-                    color = Color.White,
+                    color = TextPrimary,
                     fontWeight = FontWeight.Bold,
                     fontSize = 14.sp
                 )
                 Text(
                     text = "${modelLibrary.size} Available",
-                    color = StudioCyan,
+                    color = TextSecondary,
                     fontSize = 12.sp
                 )
             }
@@ -331,13 +343,10 @@ fun StudioScreen(
                     val isSelected = currentMesh.id == model.id
                     Surface(
                         shape = RoundedCornerShape(14.dp),
-                        color = if (isSelected) StudioCyan.copy(alpha = 0.15f) else StudioSurface,
-                        border = androidx.compose.foundation.BorderStroke(
-                            1.dp,
-                            if (isSelected) StudioCyan else Color(0xFF374151)
-                        ),
+                        color = if (isSelected) StudioAccentMuted else StudioSurfaceWhite,
                         modifier = Modifier
                             .width(160.dp)
+                            .shadow(if (isSelected) 3.dp else 1.dp, RoundedCornerShape(14.dp), spotColor = Color(0x0F0F172A))
                             .clickable {
                                 onSelectMesh(model)
                                 saveSuccessNotification = false
@@ -355,23 +364,23 @@ fun StudioScreen(
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(4.dp),
-                                    color = StudioSurfaceVariant
+                                    color = StudioSurfaceMuted
                                 ) {
                                     Text(
                                         model.category.uppercase(),
-                                        color = Color(0xFF9CA3AF),
+                                        color = TextSecondary,
                                         fontSize = 9.sp,
                                         modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
                                     )
                                 }
                                 if (isSelected) {
-                                    Icon(Icons.Default.Check, contentDescription = "Active", tint = StudioCyan, modifier = Modifier.size(16.dp))
+                                    Icon(Icons.Default.Check, contentDescription = "Active", tint = StudioAccent, modifier = Modifier.size(16.dp))
                                 }
                             }
 
                             Text(
                                 text = model.name,
-                                color = Color.White,
+                                color = TextPrimary,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 12.sp,
                                 maxLines = 1
@@ -379,7 +388,7 @@ fun StudioScreen(
 
                             Text(
                                 text = "${model.polygonCount} Polys",
-                                color = Color(0xFF9CA3AF),
+                                color = TextSecondary,
                                 fontSize = 11.sp
                             )
                         }

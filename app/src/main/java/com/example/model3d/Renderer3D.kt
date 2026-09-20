@@ -35,7 +35,11 @@ data class ModelTransform(
     val rotZDeg: Float = 0f,
     val scaleX: Float = 1f,
     val scaleY: Float = 1f,
-    val scaleZ: Float = 1f
+    val scaleZ: Float = 1f,
+    // FlipaClip-style 3D Morph & Deformation Layer
+    val squashStretch: Float = 0f, // -0.8 (squash) to +1.5 (stretch)
+    val twistDeg: Float = 0f,      // -180 to +180 deg
+    val bendX: Float = 0f          // -1.0 to +1.0
 )
 
 object Renderer3D {
@@ -64,7 +68,8 @@ object Renderer3D {
         camera: CameraTransform,
         modelTransform: ModelTransform = ModelTransform(),
         renderMode: RenderMode = RenderMode.SHADED,
-        showFloorGrid: Boolean = true
+        showFloorGrid: Boolean = true,
+        onionSkins: List<Pair<ModelTransform, Color>> = emptyList()
     ) {
         val width = drawScope.size.width
         val height = drawScope.size.height
@@ -77,7 +82,6 @@ object Renderer3D {
         val yawRad = Math.toRadians(camera.yawDeg.toDouble()).toFloat()
         val pitchRad = Math.toRadians(camera.pitchDeg.toDouble()).toFloat()
 
-        // Precompute camera orientation
         val cosYaw = cos(yawRad)
         val sinYaw = sin(yawRad)
         val cosPitch = cos(pitchRad)
@@ -88,17 +92,104 @@ object Renderer3D {
             drawFloorGrid(drawScope, centerX, centerY, focalLength, camera, cosYaw, sinYaw, cosPitch, sinPitch)
         }
 
-        // Transform vertices to world space then camera space
+        // Render FlipaClip 3D Onion Skins (Ghosted Previous & Next Frame Wireframes)
+        for ((ghostTransform, ghostColor) in onionSkins) {
+            renderMeshPass(
+                drawScope = drawScope,
+                mesh = mesh,
+                modelTransform = ghostTransform,
+                camera = camera,
+                centerX = centerX,
+                centerY = centerY,
+                focalLength = focalLength,
+                cosYaw = cosYaw,
+                sinYaw = sinYaw,
+                cosPitch = cosPitch,
+                sinPitch = sinPitch,
+                renderMode = RenderMode.WIREFRAME,
+                overrideWireColor = ghostColor,
+                wireStrokeWidth = 1.0f
+            )
+        }
+
+        // Render Primary Active Mesh
+        renderMeshPass(
+            drawScope = drawScope,
+            mesh = mesh,
+            modelTransform = modelTransform,
+            camera = camera,
+            centerX = centerX,
+            centerY = centerY,
+            focalLength = focalLength,
+            cosYaw = cosYaw,
+            sinYaw = sinYaw,
+            cosPitch = cosPitch,
+            sinPitch = sinPitch,
+            renderMode = renderMode
+        )
+    }
+
+    private fun renderMeshPass(
+        drawScope: DrawScope,
+        mesh: Mesh3D,
+        modelTransform: ModelTransform,
+        camera: CameraTransform,
+        centerX: Float,
+        centerY: Float,
+        focalLength: Float,
+        cosYaw: Float,
+        sinYaw: Float,
+        cosPitch: Float,
+        sinPitch: Float,
+        renderMode: RenderMode,
+        overrideWireColor: Color? = null,
+        wireStrokeWidth: Float = 1.2f
+    ) {
+        val width = drawScope.size.width
+        val height = drawScope.size.height
+
         val projectedVertices = ArrayList<ProjectedPoint?>(mesh.vertices.size)
         val cameraSpaceVertices = ArrayList<Vector3>(mesh.vertices.size)
 
         for (v in mesh.vertices) {
-            // 1. Model Scale
-            var mx = v.x * modelTransform.scaleX
-            var my = v.y * modelTransform.scaleY
-            var mz = v.z * modelTransform.scaleZ
+            var mx = v.x
+            var my = v.y
+            var mz = v.z
 
-            // 2. Model Rotation (Euler X, Y, Z)
+            // 1. Squash & Stretch Deformation (FlipaClip cartoon physics)
+            if (modelTransform.squashStretch != 0f) {
+                val s = modelTransform.squashStretch.coerceIn(-0.85f, 2.2f)
+                val sy = 1f + s
+                val sxz = 1f / kotlin.math.sqrt(sy.coerceAtLeast(0.08f))
+                my *= sy
+                mx *= sxz
+                mz *= sxz
+            }
+
+            // 2. Twist Deformation around Y
+            if (modelTransform.twistDeg != 0f) {
+                val normY = (my + 1f) * 0.5f
+                val twistRad = Math.toRadians((modelTransform.twistDeg * normY).toDouble()).toFloat()
+                val ct = cos(twistRad)
+                val st = sin(twistRad)
+                val rx = mx * ct - mz * st
+                val rz = mx * st + mz * ct
+                mx = rx
+                mz = rz
+            }
+
+            // 3. Bend Deformation along X
+            if (modelTransform.bendX != 0f) {
+                val bend = modelTransform.bendX * (my * my) * 0.35f
+                mx += bend
+            }
+
+            // 4. Model Scale
+            mx *= modelTransform.scaleX
+            my *= modelTransform.scaleY
+            mz *= modelTransform.scaleZ
+
+            // 5. Model Rotation (Euler X, Y, Z)
             if (modelTransform.rotXDeg != 0f || modelTransform.rotYDeg != 0f || modelTransform.rotZDeg != 0f) {
                 val rotV = Vector3(mx, my, mz).rotateEuler(
                     modelTransform.rotXDeg,
@@ -110,18 +201,16 @@ object Renderer3D {
                 mz = rotV.z
             }
 
-            // 3. Model Translation
+            // 6. Model Translation
             val wx = mx + modelTransform.posX
             val wy = my + modelTransform.posY
             val wz = mz + modelTransform.posZ
 
-            // 4. Camera Orbit Rotation
-            // Rotate around Y (Yaw)
+            // 7. Camera Orbit Rotation
             val x1 = wx * cosYaw + wz * sinYaw
             val y1 = wy
             val z1 = -wx * sinYaw + wz * cosYaw
 
-            // Rotate around X (Pitch)
             val camX = x1
             val camY = y1 * cosPitch - z1 * sinPitch
             val camZ = y1 * sinPitch + z1 * cosPitch + camera.distance
@@ -143,7 +232,7 @@ object Renderer3D {
                 if (pt != null && pt.screenX in -50f..(width + 50f) && pt.screenY in -50f..(height + 50f)) {
                     val radius = max(1.5f, min(5f, 10f / pt.depth))
                     drawScope.drawCircle(
-                        color = Color(0xFF00E5FF),
+                        color = overrideWireColor ?: Color(0xFF00E5FF),
                         radius = radius,
                         center = Offset(pt.screenX, pt.screenY)
                     )
@@ -160,19 +249,16 @@ object Renderer3D {
             val p2 = projectedVertices.getOrNull(t.v2) ?: continue
             val p3 = projectedVertices.getOrNull(t.v3) ?: continue
 
-            // Backface culling in screen space (signed area 2D cross product)
             val cross = (p2.screenX - p1.screenX) * (p3.screenY - p1.screenY) -
                     (p2.screenY - p1.screenY) * (p3.screenX - p1.screenX)
 
-            if (cross > 0f) { // Facing camera
+            if (cross > 0f) {
                 val avgDepth = (p1.depth + p2.depth + p3.depth) / 3f
 
-                // Rotate normal with model rotation
                 val rotatedNormal = if (modelTransform.rotXDeg != 0f || modelTransform.rotYDeg != 0f || modelTransform.rotZDeg != 0f) {
                     t.normal.rotateEuler(modelTransform.rotXDeg, modelTransform.rotYDeg, modelTransform.rotZDeg)
                 } else t.normal
 
-                // Lighting
                 val baseColor = when (renderMode) {
                     RenderMode.CLAY_STUDIO -> Color(0xFFD6D3D1)
                     else -> t.color
@@ -190,13 +276,13 @@ object Renderer3D {
                     alpha = 1.0f
                 )
 
-                val wireColor = when (renderMode) {
-                    RenderMode.WIREFRAME -> Color(0xFF00E5FF)
+                val wireColor = overrideWireColor ?: when (renderMode) {
+                    RenderMode.WIREFRAME -> Color(0xFF1E293B)
                     else -> Color(
-                        red = (shadedColor.red * 0.7f).coerceIn(0f, 1f),
-                        green = (shadedColor.green * 0.7f).coerceIn(0f, 1f),
-                        blue = (shadedColor.blue * 0.7f).coerceIn(0f, 1f),
-                        alpha = 0.5f
+                        red = (shadedColor.red * 0.75f).coerceIn(0f, 1f),
+                        green = (shadedColor.green * 0.75f).coerceIn(0f, 1f),
+                        blue = (shadedColor.blue * 0.75f).coerceIn(0f, 1f),
+                        alpha = 0.4f
                     )
                 }
 
@@ -204,7 +290,6 @@ object Renderer3D {
             }
         }
 
-        // Painter's algorithm: sort back to front (largest depth first)
         projectedTriangles.sortByDescending { it.avgDepth }
 
         val path = Path()
@@ -215,7 +300,7 @@ object Renderer3D {
             path.lineTo(tri.p3.screenX, tri.p3.screenY)
             path.close()
 
-            if (renderMode != RenderMode.WIREFRAME) {
+            if (renderMode != RenderMode.WIREFRAME && overrideWireColor == null) {
                 drawScope.drawPath(
                     path = path,
                     color = tri.shadedColor,
@@ -223,11 +308,11 @@ object Renderer3D {
                 )
             }
 
-            if (renderMode == RenderMode.WIREFRAME) {
+            if (renderMode == RenderMode.WIREFRAME || overrideWireColor != null) {
                 drawScope.drawPath(
                     path = path,
                     color = tri.wireColor,
-                    style = Stroke(width = 1.2f)
+                    style = Stroke(width = wireStrokeWidth)
                 )
             }
         }
@@ -264,8 +349,8 @@ object Renderer3D {
             return Offset(sx, sy)
         }
 
-        val gridColor = Color(0x336366F1)
-        val centerAxisColor = Color(0x6600E5FF)
+        val gridColor = Color(0x1F0F172A)
+        val centerAxisColor = Color(0x402563EB)
 
         // Grid lines along X and Z
         for (i in 0..steps) {
@@ -298,7 +383,7 @@ object Renderer3D {
             val rz = ringRadius * sin(a)
             val curOffset = projectFloor(rx, rz)
             if (prevOffset != null && curOffset != null) {
-                drawScope.drawLine(Color(0x4400E5FF), prevOffset, curOffset, strokeWidth = 1.0f)
+                drawScope.drawLine(Color(0x302563EB), prevOffset, curOffset, strokeWidth = 1.0f)
             }
             prevOffset = curOffset
         }

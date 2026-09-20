@@ -1,5 +1,8 @@
 package com.example.ui.components
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -15,10 +18,13 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CropSquare
 import androidx.compose.material.icons.filled.GridOn
+import androidx.compose.material.icons.filled.Layers
 import androidx.compose.material.icons.filled.RestartAlt
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.ViewInAr
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
@@ -34,10 +40,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.model3d.CameraTransform
@@ -56,26 +64,28 @@ fun Viewport3D(
     modelTransform: ModelTransform = ModelTransform(),
     initialCamera: CameraTransform = CameraTransform(),
     allowUserOrbit: Boolean = true,
+    onionSkins: List<Pair<ModelTransform, Color>> = emptyList(),
     overlayContent: @Composable () -> Unit = {}
 ) {
     var camera by remember { mutableStateOf(initialCamera) }
     var renderMode by remember { mutableStateOf(RenderMode.SHADED) }
     var showGrid by remember { mutableStateOf(true) }
+    var showDisplayMenu by remember { mutableStateOf(false) }
 
     Box(
         modifier = modifier
             .fillMaxSize()
-            .clip(RoundedCornerShape(16.dp))
+            .shadow(4.dp, RoundedCornerShape(20.dp), spotColor = Color(0x150F172A))
+            .clip(RoundedCornerShape(20.dp))
             .background(
                 brush = Brush.verticalGradient(
                     colors = listOf(
-                        StudioDarkBg,
-                        StudioSurface,
-                        Color(0xFF0D131F)
+                        Color(0xFFFFFFFF),
+                        Color(0xFFF8FAFC),
+                        Color(0xFFF1F5F9)
                     )
                 )
             )
-            .border(1.dp, Color(0xFF374151), RoundedCornerShape(16.dp))
     ) {
         Canvas(
             modifier = Modifier
@@ -83,7 +93,7 @@ fun Viewport3D(
                 .testTag("viewport_3d_canvas")
                 .pointerInput(allowUserOrbit) {
                     if (!allowUserOrbit) return@pointerInput
-                    detectTransformGestures { centroid, pan, zoom, _ ->
+                    detectTransformGestures { _, pan, zoom, _ ->
                         val newDist = (camera.distance / zoom).coerceIn(0.8f, 12f)
                         if (zoom != 1f) {
                             camera = camera.copy(distance = newDist)
@@ -101,117 +111,161 @@ fun Viewport3D(
                 camera = camera,
                 modelTransform = modelTransform,
                 renderMode = renderMode,
-                showFloorGrid = showGrid
+                showFloorGrid = showGrid,
+                onionSkins = onionSkins
             )
         }
 
-        // Top HUD Bar: Mesh Information & Render Modes
-        Column(
+        // Minimalist Floating Top HUD: Stats pill + Tucked Display Menu Button
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(12.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+            // Subtle Mesh Stats Badge
+            Surface(
+                shape = RoundedCornerShape(20.dp),
+                color = Color(0xF2FFFFFF),
+                shadowElevation = 2.dp
             ) {
-                // Mesh Stats Badge
+                Row(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.ViewInAr,
+                        contentDescription = "Mesh info",
+                        tint = Color(0xFF2563EB),
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Text(
+                        text = "${mesh.polygonCount} Polys • ${mesh.vertexCount} Verts",
+                        color = Color(0xFF334155),
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 11.sp
+                    )
+                }
+            }
+
+            // Tucked Display Settings Pill Button
+            Box {
                 Surface(
-                    shape = RoundedCornerShape(8.dp),
-                    color = StudioSurface.copy(alpha = 0.85f),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151))
+                    onClick = { showDisplayMenu = !showDisplayMenu },
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xF2FFFFFF),
+                    shadowElevation = 2.dp
                 ) {
                     Row(
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Default.ViewInAr,
-                            contentDescription = "Mesh info",
-                            tint = StudioCyan,
-                            modifier = Modifier.size(16.dp)
+                            imageVector = Icons.Default.Tune,
+                            contentDescription = "Display options",
+                            tint = if (showDisplayMenu) Color(0xFF2563EB) else Color(0xFF64748B),
+                            modifier = Modifier.size(14.dp)
                         )
                         Text(
-                            text = "${mesh.polygonCount} Polys • ${mesh.vertexCount} Verts",
-                            color = Color(0xFFE5E7EB),
+                            text = renderMode.label.substringBefore(" &"),
+                            color = Color(0xFF334155),
+                            fontWeight = FontWeight.Medium,
                             fontSize = 11.sp
                         )
                     }
                 }
 
-                // Quick View Actions
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    // Grid Toggle
-                    IconButton(
-                        onClick = { showGrid = !showGrid },
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(StudioSurface.copy(alpha = 0.85f), CircleShape)
-                            .border(1.dp, Color(0xFF374151), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.GridOn,
-                            contentDescription = "Toggle Grid",
-                            tint = if (showGrid) StudioCyan else Color.Gray,
-                            modifier = Modifier.size(16.dp)
+                // Tucked Options Dropdown Menu
+                DropdownMenu(
+                    expanded = showDisplayMenu,
+                    onDismissRequest = { showDisplayMenu = false },
+                    modifier = Modifier
+                        .background(Color.White)
+                        .clip(RoundedCornerShape(12.dp))
+                ) {
+                    Text(
+                        text = "RENDER MODE",
+                        color = Color(0xFF94A3B8),
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 4.dp)
+                    )
+                    RenderMode.values().forEach { mode ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = mode.label,
+                                    color = if (renderMode == mode) Color(0xFF2563EB) else Color(0xFF1E293B),
+                                    fontWeight = if (renderMode == mode) FontWeight.Bold else FontWeight.Normal,
+                                    fontSize = 12.sp
+                                )
+                            },
+                            onClick = {
+                                renderMode = mode
+                                showDisplayMenu = false
+                            }
                         )
                     }
 
-                    // Reset Camera
-                    IconButton(
-                        onClick = { camera = initialCamera },
-                        modifier = Modifier
-                            .size(34.dp)
-                            .background(StudioSurface.copy(alpha = 0.85f), CircleShape)
-                            .border(1.dp, Color(0xFF374151), CircleShape)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.RestartAlt,
-                            contentDescription = "Reset Camera View",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
+                    androidx.compose.material3.HorizontalDivider(color = Color(0xFFF1F5F9), modifier = Modifier.padding(vertical = 4.dp))
 
-            // Mode Selector Chips
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp)
-            ) {
-                RenderMode.values().forEach { mode ->
-                    val isSelected = renderMode == mode
-                    FilterChip(
-                        selected = isSelected,
-                        onClick = { renderMode = mode },
-                        label = {
-                            Text(
-                                text = mode.label,
-                                fontSize = 10.sp
-                            )
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.GridOn,
+                                    contentDescription = null,
+                                    tint = if (showGrid) Color(0xFF2563EB) else Color(0xFF94A3B8),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = if (showGrid) "Grid: Enabled" else "Grid: Disabled",
+                                    color = Color(0xFF1E293B),
+                                    fontSize = 12.sp
+                                )
+                            }
                         },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = StudioCyan.copy(alpha = 0.2f),
-                            selectedLabelColor = StudioCyan,
-                            containerColor = StudioSurface.copy(alpha = 0.8f),
-                            labelColor = Color(0xFF9CA3AF)
-                        ),
-                        border = FilterChipDefaults.filterChipBorder(
-                            enabled = true,
-                            selected = isSelected,
-                            borderColor = if (isSelected) StudioCyan else Color(0xFF374151)
-                        ),
-                        modifier = Modifier.size(height = 28.dp, width = androidx.compose.ui.unit.Dp.Unspecified)
+                        onClick = {
+                            showGrid = !showGrid
+                            showDisplayMenu = false
+                        }
+                    )
+
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.RestartAlt,
+                                    contentDescription = null,
+                                    tint = Color(0xFF64748B),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Text(
+                                    text = "Reset Camera Angle",
+                                    color = Color(0xFF1E293B),
+                                    fontSize = 12.sp
+                                )
+                            }
+                        },
+                        onClick = {
+                            camera = initialCamera
+                            showDisplayMenu = false
+                        }
                     )
                 }
             }
         }
 
-        // Custom Overlay Content (e.g. photogrammetry orbit guidance or animation badge)
+        // Custom Overlay Content
         Box(modifier = Modifier.fillMaxSize()) {
             overlayContent()
         }

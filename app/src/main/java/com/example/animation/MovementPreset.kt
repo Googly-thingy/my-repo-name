@@ -67,20 +67,20 @@ enum class MovementPreset(
             )
 
             PLAYFUL_BOUNCE -> listOf(
-                Keyframe(timeSec = 0.0f, posY = -0.1f, scale = 1.15f, rotX = 0f, easing = EasingType.SMOOTH),
-                Keyframe(timeSec = 0.6f, posY = 0.65f, scale = 0.9f, rotX = 12f, easing = EasingType.SMOOTH),
-                Keyframe(timeSec = 1.25f, posY = -0.1f, scale = 1.15f, rotX = 0f, easing = EasingType.BOUNCE),
-                Keyframe(timeSec = 1.85f, posY = 0.4f, scale = 0.95f, rotX = -8f, easing = EasingType.SMOOTH),
-                Keyframe(timeSec = 2.5f, posY = -0.1f, scale = 1.15f, rotX = 0f, easing = EasingType.BOUNCE)
+                Keyframe(timeSec = 0.0f, posY = -0.1f, scale = 1.0f, squashStretch = -0.45f, rotX = 0f, easing = EasingType.SMOOTH),
+                Keyframe(timeSec = 0.6f, posY = 0.65f, scale = 1.0f, squashStretch = 0.35f, rotX = 12f, easing = EasingType.SMOOTH),
+                Keyframe(timeSec = 1.25f, posY = -0.1f, scale = 1.0f, squashStretch = -0.45f, rotX = 0f, easing = EasingType.BOUNCE),
+                Keyframe(timeSec = 1.85f, posY = 0.4f, scale = 1.0f, squashStretch = 0.25f, rotX = -8f, easing = EasingType.SMOOTH),
+                Keyframe(timeSec = 2.5f, posY = -0.1f, scale = 1.0f, squashStretch = -0.3f, rotX = 0f, easing = EasingType.BOUNCE)
             )
 
             HEARTBEAT_PULSE -> listOf(
-                Keyframe(timeSec = 0.0f, scale = 1.0f, posY = 0f, easing = EasingType.SMOOTH),
-                Keyframe(timeSec = 0.35f, scale = 1.22f, posY = 0.08f, easing = EasingType.ELASTIC),
-                Keyframe(timeSec = 0.65f, scale = 0.96f, posY = -0.02f, easing = EasingType.SMOOTH),
-                Keyframe(timeSec = 1.0f, scale = 1.12f, posY = 0.04f, easing = EasingType.SMOOTH),
-                Keyframe(timeSec = 1.35f, scale = 0.98f, posY = 0.0f, easing = EasingType.SMOOTH),
-                Keyframe(timeSec = 2.0f, scale = 1.0f, posY = 0f, easing = EasingType.SMOOTH)
+                Keyframe(timeSec = 0.0f, scale = 1.0f, posY = 0f, squashStretch = 0.0f, easing = EasingType.SMOOTH),
+                Keyframe(timeSec = 0.35f, scale = 1.22f, posY = 0.08f, squashStretch = 0.25f, easing = EasingType.ELASTIC),
+                Keyframe(timeSec = 0.65f, scale = 0.96f, posY = -0.02f, squashStretch = -0.12f, easing = EasingType.SMOOTH),
+                Keyframe(timeSec = 1.0f, scale = 1.12f, posY = 0.04f, squashStretch = 0.15f, easing = EasingType.SMOOTH),
+                Keyframe(timeSec = 1.35f, scale = 0.98f, posY = 0.0f, squashStretch = -0.06f, easing = EasingType.SMOOTH),
+                Keyframe(timeSec = 2.0f, scale = 1.0f, posY = 0f, squashStretch = 0.0f, easing = EasingType.SMOOTH)
             )
 
             HELIX_SPIRAL -> listOf(

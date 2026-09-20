@@ -1,7 +1,6 @@
 package com.example.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,6 +35,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
@@ -44,11 +44,20 @@ import androidx.compose.ui.unit.sp
 import com.example.data.SavedProject
 import com.example.model3d.Mesh3D
 import com.example.model3d.ModelParsers
+import com.example.ui.theme.StudioAccent
+import com.example.ui.theme.StudioAccentMuted
 import com.example.ui.theme.StudioAmber
-import com.example.ui.theme.StudioCyan
+import com.example.ui.theme.StudioAmberBg
+import com.example.ui.theme.StudioBackground
+import com.example.ui.theme.StudioBorderSubtle
 import com.example.ui.theme.StudioEmerald
-import com.example.ui.theme.StudioSurface
-import com.example.ui.theme.StudioSurfaceVariant
+import com.example.ui.theme.StudioEmeraldBg
+import com.example.ui.theme.StudioPrimary
+import com.example.ui.theme.StudioSurfaceMuted
+import com.example.ui.theme.StudioSurfaceWhite
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.TextTertiary
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -66,7 +75,7 @@ fun ProjectsScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF090D16))
+            .background(StudioBackground)
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
@@ -79,13 +88,13 @@ fun ProjectsScreen(
             Column {
                 Text(
                     text = "Saved 3D Projects",
-                    color = Color.White,
+                    color = TextPrimary,
                     fontWeight = FontWeight.Bold,
-                    fontSize = 18.sp
+                    fontSize = 20.sp
                 )
                 Text(
                     text = "${projects.size} 3D scans & animated models saved",
-                    color = Color(0xFF9CA3AF),
+                    color = TextSecondary,
                     fontSize = 12.sp
                 )
             }
@@ -106,14 +115,14 @@ fun ProjectsScreen(
                 ) {
                     Surface(
                         shape = CircleShape,
-                        color = StudioSurfaceVariant,
+                        color = StudioAccentMuted,
                         modifier = Modifier.size(72.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
                             Icon(
                                 imageVector = Icons.Default.FolderOpen,
                                 contentDescription = null,
-                                tint = StudioCyan,
+                                tint = StudioAccent,
                                 modifier = Modifier.size(36.dp)
                             )
                         }
@@ -121,15 +130,15 @@ fun ProjectsScreen(
 
                     Text(
                         text = "No saved 3D scans yet",
-                        color = Color.White,
+                        color = TextPrimary,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp
+                        fontSize = 17.sp
                     )
 
                     Text(
                         text = "Capture real-life objects in the Photogrammetry Scanner, or save models from the 3D Studio to view and re-animate them here anytime.",
-                        color = Color(0xFF9CA3AF),
-                        fontSize = 12.sp,
+                        color = TextSecondary,
+                        fontSize = 13.sp,
                         textAlign = androidx.compose.ui.text.style.TextAlign.Center
                     )
 
@@ -137,7 +146,8 @@ fun ProjectsScreen(
 
                     Button(
                         onClick = onNavigateToScan,
-                        colors = ButtonDefaults.buttonColors(containerColor = StudioCyan, contentColor = Color.Black),
+                        colors = ButtonDefaults.buttonColors(containerColor = StudioPrimary, contentColor = Color.White),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier.testTag("empty_state_scan_button")
                     ) {
                         Icon(Icons.Default.CameraAlt, contentDescription = null, modifier = Modifier.size(16.dp))
@@ -154,10 +164,10 @@ fun ProjectsScreen(
                 items(projects, key = { it.id }) { project ->
                     Surface(
                         shape = RoundedCornerShape(16.dp),
-                        color = StudioSurface,
-                        border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151)),
+                        color = StudioSurfaceWhite,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .shadow(2.dp, RoundedCornerShape(16.dp), spotColor = Color(0x0D0F172A))
                             .clickable {
                                 val parseResult = ModelParsers.parseObj(project.name, project.objData)
                                 val mesh = parseResult.getOrElse {
@@ -168,7 +178,7 @@ fun ProjectsScreen(
                             .testTag("project_item_${project.id}")
                     ) {
                         Column(
-                            modifier = Modifier.padding(14.dp),
+                            modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(10.dp)
                         ) {
                             Row(
@@ -176,16 +186,24 @@ fun ProjectsScreen(
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Icon(
-                                        imageVector = if (project.isScanned) Icons.Default.CameraAlt else Icons.Default.ViewInAr,
-                                        contentDescription = null,
-                                        tint = if (project.isScanned) StudioEmerald else StudioCyan,
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Surface(
+                                        shape = RoundedCornerShape(10.dp),
+                                        color = if (project.isScanned) StudioEmeraldBg else StudioAccentMuted,
+                                        modifier = Modifier.size(40.dp)
+                                    ) {
+                                        Box(contentAlignment = Alignment.Center) {
+                                            Icon(
+                                                imageVector = if (project.isScanned) Icons.Default.CameraAlt else Icons.Default.ViewInAr,
+                                                contentDescription = null,
+                                                tint = if (project.isScanned) StudioEmerald else StudioAccent,
+                                                modifier = Modifier.size(20.dp)
+                                            )
+                                        }
+                                    }
                                     Column {
-                                        Text(project.name, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                                        Text(dateFormat.format(Date(project.createdAt)), color = Color(0xFF9CA3AF), fontSize = 10.sp)
+                                        Text(project.name, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                        Text(dateFormat.format(Date(project.createdAt)), color = TextTertiary, fontSize = 11.sp)
                                     }
                                 }
 
@@ -204,39 +222,39 @@ fun ProjectsScreen(
                             ) {
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = StudioSurfaceVariant
+                                    color = StudioSurfaceMuted
                                 ) {
                                     Text(
                                         "${project.polygonCount} Polys",
-                                        color = StudioCyan,
+                                        color = TextSecondary,
                                         fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                     )
                                 }
                                 Surface(
                                     shape = RoundedCornerShape(6.dp),
-                                    color = StudioSurfaceVariant
+                                    color = StudioSurfaceMuted
                                 ) {
                                     Text(
                                         "${project.fps} FPS Animation",
                                         color = StudioAmber,
                                         fontSize = 11.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                        fontWeight = FontWeight.SemiBold,
+                                        modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.dp)
                                     )
                                 }
                                 if (project.isScanned) {
                                     Surface(
                                         shape = RoundedCornerShape(6.dp),
-                                        color = StudioEmerald.copy(alpha = 0.2f)
+                                        color = StudioEmeraldBg
                                     ) {
                                         Text(
                                             "PHOTOGRAMMETRY",
                                             color = StudioEmerald,
                                             fontSize = 10.sp,
                                             fontWeight = FontWeight.Bold,
-                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp)
                                         )
                                     }
                                 }

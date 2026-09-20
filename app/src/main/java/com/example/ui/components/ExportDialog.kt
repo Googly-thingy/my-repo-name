@@ -56,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalContext
@@ -69,11 +70,18 @@ import com.example.animation.AnimationTrack
 import com.example.animation.FramerateSettings
 import com.example.model3d.Mesh3D
 import com.example.model3d.ModelParsers
+import com.example.ui.theme.StudioAccent
+import com.example.ui.theme.StudioAccentMuted
 import com.example.ui.theme.StudioAmber
-import com.example.ui.theme.StudioCyan
+import com.example.ui.theme.StudioBorderSubtle
 import com.example.ui.theme.StudioEmerald
-import com.example.ui.theme.StudioSurface
-import com.example.ui.theme.StudioSurfaceVariant
+import com.example.ui.theme.StudioEmeraldBg
+import com.example.ui.theme.StudioPrimary
+import com.example.ui.theme.StudioSurfaceMuted
+import com.example.ui.theme.StudioSurfaceWhite
+import com.example.ui.theme.TextPrimary
+import com.example.ui.theme.TextSecondary
+import com.example.ui.theme.TextTertiary
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -126,12 +134,12 @@ fun ExportDialog(
 
     Dialog(onDismissRequest = { if (!isRendering) onDismiss() }) {
         Surface(
-            shape = RoundedCornerShape(24.dp),
-            color = StudioSurface,
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151)),
+            shape = RoundedCornerShape(20.dp),
+            color = StudioSurfaceWhite,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(8.dp)
+                .padding(4.dp)
+                .shadow(8.dp, RoundedCornerShape(20.dp), spotColor = Color(0x1A0F172A))
         ) {
             Column(
                 modifier = Modifier
@@ -148,14 +156,14 @@ fun ExportDialog(
                 ) {
                     Column {
                         Text(
-                            text = "Export High-Quality Assets",
-                            color = Color.White,
+                            text = "Export Assets",
+                            color = TextPrimary,
                             fontWeight = FontWeight.Bold,
                             fontSize = 17.sp
                         )
                         Text(
                             text = "Model: ${mesh.name}",
-                            color = Color(0xFF9CA3AF),
+                            color = TextSecondary,
                             fontSize = 12.sp
                         )
                     }
@@ -164,32 +172,30 @@ fun ExportDialog(
                         enabled = !isRendering,
                         modifier = Modifier.size(32.dp)
                     ) {
-                        Icon(Icons.Default.Close, contentDescription = "Close", tint = Color.Gray)
+                        Icon(Icons.Default.Close, contentDescription = "Close", tint = TextTertiary)
                     }
                 }
 
                 // Category Tabs (3D Mesh vs Video Animation)
                 TabRow(
                     selectedTabIndex = selectedTab.ordinal,
-                    containerColor = StudioSurfaceVariant,
-                    contentColor = StudioCyan,
+                    containerColor = StudioSurfaceMuted,
+                    contentColor = StudioPrimary,
                     indicator = { tabPositions ->
                         TabRowDefaults.SecondaryIndicator(
                             Modifier.tabIndicatorOffset(tabPositions[selectedTab.ordinal]),
-                            color = StudioCyan
+                            color = StudioPrimary
                         )
                     },
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(12.dp))
-                        .border(1.dp, Color(0xFF374151), RoundedCornerShape(12.dp))
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
                 ) {
                     Tab(
                         selected = selectedTab == ExportType.MESH_3D,
                         onClick = { selectedTab = ExportType.MESH_3D; exportSuccessMessage = null },
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Icon(Icons.Default.ViewInAr, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Text("3D Mesh Files", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Icon(Icons.Default.ViewInAr, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (selectedTab == ExportType.MESH_3D) StudioPrimary else TextSecondary)
+                                Text("3D Mesh Files", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (selectedTab == ExportType.MESH_3D) StudioPrimary else TextSecondary)
                             }
                         }
                     )
@@ -198,8 +204,8 @@ fun ExportDialog(
                         onClick = { selectedTab = ExportType.VIDEO_ANIMATION; exportSuccessMessage = null },
                         text = {
                             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Icon(Icons.Default.Movie, contentDescription = null, modifier = Modifier.size(16.dp))
-                                Text("Video Animation", fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                                Icon(Icons.Default.Movie, contentDescription = null, modifier = Modifier.size(16.dp), tint = if (selectedTab == ExportType.VIDEO_ANIMATION) StudioPrimary else TextSecondary)
+                                Text("Video Animation", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = if (selectedTab == ExportType.VIDEO_ANIMATION) StudioPrimary else TextSecondary)
                             }
                         }
                     )
@@ -208,18 +214,15 @@ fun ExportDialog(
                 if (selectedTab == ExportType.MESH_3D) {
                     // Mesh Format Options
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text("Select 3D Mesh Format:", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("Select 3D Mesh Format:", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         MeshFormat.values().forEach { format ->
                             val isSelected = selectedMeshFormat == format
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) StudioCyan.copy(alpha = 0.12f) else StudioSurfaceVariant,
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    if (isSelected) StudioCyan else Color(0xFF374151)
-                                ),
+                                color = if (isSelected) StudioAccentMuted else StudioSurfaceMuted,
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .shadow(if (isSelected) 2.dp else 0.dp, RoundedCornerShape(12.dp), spotColor = Color(0x0F0F172A))
                                     .clickable { selectedMeshFormat = format; exportSuccessMessage = null }
                             ) {
                                 Row(
@@ -230,25 +233,26 @@ fun ExportDialog(
                                     Icon(
                                         imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.ViewInAr,
                                         contentDescription = null,
-                                        tint = if (isSelected) StudioCyan else Color.Gray,
+                                        tint = if (isSelected) StudioPrimary else TextTertiary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text(format.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            Text(format.title, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                             Surface(
                                                 shape = RoundedCornerShape(4.dp),
-                                                color = Color(0xFF1E293B)
+                                                color = if (isSelected) Color.White else StudioSurfaceWhite
                                             ) {
                                                 Text(
                                                     format.extension.uppercase(),
-                                                    color = StudioCyan,
+                                                    color = StudioPrimary,
                                                     fontSize = 10.sp,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                                 )
                                             }
                                         }
-                                        Text(format.desc, color = Color(0xFF9CA3AF), fontSize = 11.sp)
+                                        Text(format.desc, color = TextSecondary, fontSize = 11.sp)
                                     }
                                 }
                             }
@@ -257,18 +261,15 @@ fun ExportDialog(
                 } else {
                     // Video Animation Options
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Text("Select Video / Animation Format:", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("Select Video / Animation Format:", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         VideoFormat.values().forEach { format ->
                             val isSelected = selectedVideoFormat == format
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (isSelected) StudioCyan.copy(alpha = 0.12f) else StudioSurfaceVariant,
-                                border = androidx.compose.foundation.BorderStroke(
-                                    1.dp,
-                                    if (isSelected) StudioCyan else Color(0xFF374151)
-                                ),
+                                color = if (isSelected) StudioAccentMuted else StudioSurfaceMuted,
                                 modifier = Modifier
                                     .fillMaxWidth()
+                                    .shadow(if (isSelected) 2.dp else 0.dp, RoundedCornerShape(12.dp), spotColor = Color(0x0F0F172A))
                                     .clickable { selectedVideoFormat = format; exportSuccessMessage = null }
                             ) {
                                 Row(
@@ -279,32 +280,33 @@ fun ExportDialog(
                                     Icon(
                                         imageVector = if (isSelected) Icons.Default.CheckCircle else Icons.Default.VideoFile,
                                         contentDescription = null,
-                                        tint = if (isSelected) StudioCyan else Color.Gray,
+                                        tint = if (isSelected) StudioPrimary else TextTertiary,
                                         modifier = Modifier.size(20.dp)
                                     )
                                     Column(modifier = Modifier.weight(1f)) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                            Text(format.title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                                            Text(format.title, color = TextPrimary, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                                             Surface(
                                                 shape = RoundedCornerShape(4.dp),
-                                                color = Color(0xFF1E293B)
+                                                color = if (isSelected) Color.White else StudioSurfaceWhite
                                             ) {
                                                 Text(
                                                     format.extension.uppercase(),
-                                                    color = StudioCyan,
+                                                    color = StudioPrimary,
                                                     fontSize = 10.sp,
-                                                    modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
+                                                    fontWeight = FontWeight.SemiBold,
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
                                                 )
                                             }
                                         }
-                                        Text(format.desc, color = Color(0xFF9CA3AF), fontSize = 11.sp)
+                                        Text(format.desc, color = TextSecondary, fontSize = 11.sp)
                                     }
                                 }
                             }
                         }
 
                         // Resolution Selector
-                        Text("Export Video Resolution:", color = Color.LightGray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                        Text("Export Video Resolution:", color = TextSecondary, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -316,16 +318,12 @@ fun ExportDialog(
                                     onClick = { selectedResolution = res },
                                     label = { Text(res.label, fontSize = 10.sp) },
                                     colors = FilterChipDefaults.filterChipColors(
-                                        selectedContainerColor = StudioCyan,
-                                        selectedLabelColor = Color.Black,
-                                        containerColor = StudioSurfaceVariant,
-                                        labelColor = Color(0xFF9CA3AF)
+                                        selectedContainerColor = StudioPrimary,
+                                        selectedLabelColor = Color.White,
+                                        containerColor = StudioSurfaceMuted,
+                                        labelColor = TextSecondary
                                     ),
-                                    border = FilterChipDefaults.filterChipBorder(
-                                        enabled = true,
-                                        selected = isSelected,
-                                        borderColor = if (isSelected) StudioCyan else Color(0xFF374151)
-                                    ),
+                                    border = null,
                                     modifier = Modifier.weight(1f)
                                 )
                             }
@@ -333,20 +331,19 @@ fun ExportDialog(
 
                         // Framerate info badge
                         Surface(
-                            shape = RoundedCornerShape(8.dp),
-                            color = StudioSurfaceVariant,
-                            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF374151)),
+                            shape = RoundedCornerShape(10.dp),
+                            color = StudioSurfaceMuted,
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Row(
-                                modifier = Modifier.padding(10.dp),
+                                modifier = Modifier.padding(12.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Text("Frame Render Settings:", color = Color(0xFF9CA3AF), fontSize = 11.sp)
+                                Text("Frame Render Settings:", color = TextSecondary, fontSize = 11.sp)
                                 Text(
                                     "${framerateSettings.fps} FPS • $totalFrames Frames (${String.format(java.util.Locale.US, "%.1f", track.durationSec)}s)",
-                                    color = StudioCyan,
+                                    color = StudioPrimary,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 11.sp
                                 )
@@ -359,8 +356,7 @@ fun ExportDialog(
                 if (isRendering) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = Color(0xFF090D16),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, StudioCyan.copy(alpha = 0.5f)),
+                        color = StudioSurfaceMuted,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Column(
@@ -373,21 +369,21 @@ fun ExportDialog(
                             ) {
                                 Text(
                                     text = if (selectedTab == ExportType.MESH_3D) "Compiling 3D mesh buffers..." else "Rendering animation frames...",
-                                    color = Color.White,
+                                    color = TextPrimary,
                                     fontSize = 12.sp,
                                     fontWeight = FontWeight.Medium
                                 )
                                 Text(
                                     text = "${(renderProgress * 100).toInt()}%",
-                                    color = StudioCyan,
+                                    color = StudioPrimary,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp
                                 )
                             }
                             LinearProgressIndicator(
                                 progress = { renderProgress },
-                                color = StudioCyan,
-                                trackColor = Color(0xFF1F2937),
+                                color = StudioPrimary,
+                                trackColor = Color(0xFFE2E8F0),
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .height(6.dp)
@@ -396,7 +392,7 @@ fun ExportDialog(
                             if (selectedTab == ExportType.VIDEO_ANIMATION) {
                                 Text(
                                     text = "Frame $currentRenderFrame of $totalFrames @ ${selectedResolution.dimensions}",
-                                    color = Color(0xFF9CA3AF),
+                                    color = TextSecondary,
                                     fontSize = 11.sp
                                 )
                             }
@@ -408,8 +404,7 @@ fun ExportDialog(
                 if (exportSuccessMessage != null) {
                     Surface(
                         shape = RoundedCornerShape(12.dp),
-                        color = StudioEmerald.copy(alpha = 0.15f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, StudioEmerald),
+                        color = StudioEmeraldBg,
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         Row(
@@ -419,8 +414,8 @@ fun ExportDialog(
                         ) {
                             Icon(Icons.Default.CheckCircle, contentDescription = null, tint = StudioEmerald, modifier = Modifier.size(20.dp))
                             Column {
-                                Text("Ready to Save & Share!", color = Color.White, fontWeight = FontWeight.Bold, fontSize = 12.sp)
-                                Text(exportSuccessMessage ?: "", color = Color(0xFFA7F3D0), fontSize = 11.sp)
+                                Text("Ready to Save & Share!", color = StudioEmerald, fontWeight = FontWeight.Bold, fontSize = 12.sp)
+                                Text(exportSuccessMessage ?: "", color = TextPrimary, fontSize = 11.sp)
                             }
                         }
                     }
@@ -460,16 +455,17 @@ fun ExportDialog(
                         },
                         enabled = !isRendering,
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = StudioCyan,
-                            contentColor = Color.Black
+                            containerColor = StudioPrimary,
+                            contentColor = Color.White
                         ),
+                        shape = RoundedCornerShape(12.dp),
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(48.dp)
                             .testTag("export_render_button")
                     ) {
                         if (isRendering) {
-                            CircularProgressIndicator(color = Color.Black, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
                             Spacer(Modifier.width(8.dp))
                             Text("Processing...", fontWeight = FontWeight.Bold)
                         } else {
@@ -507,13 +503,13 @@ fun ExportDialog(
                                     context.startActivity(shareIntent)
                                 },
                                 colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF1E293B),
-                                    contentColor = StudioCyan
+                                    containerColor = StudioAccentMuted,
+                                    contentColor = StudioPrimary
                                 ),
+                                shape = RoundedCornerShape(12.dp),
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(44.dp)
-                                    .border(1.dp, StudioCyan, RoundedCornerShape(100.dp))
                             ) {
                                 Icon(Icons.Default.Share, contentDescription = null, modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
@@ -530,11 +526,13 @@ fun ExportDialog(
                                     }
                                     clipboardManager.setText(AnnotatedString(text))
                                 },
+                                shape = RoundedCornerShape(12.dp),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, StudioBorderSubtle),
                                 modifier = Modifier
                                     .weight(1f)
                                     .height(44.dp)
                             ) {
-                                Text("Copy Data", fontSize = 12.sp)
+                                Text("Copy Data", color = TextPrimary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
                             }
                         }
                     }

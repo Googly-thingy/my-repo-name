@@ -21,16 +21,33 @@ class ReconstructionManager {
     private val _qualityMetrics = MutableStateFlow(ScanQualityMetrics())
     val qualityMetrics: StateFlow<ScanQualityMetrics> = _qualityMetrics.asStateFlow()
 
-    fun addCapturedPhoto(angleDeg: Float, elevationDeg: Float): CapturedPhoto {
+    fun addCapturedPhoto(
+        angleDeg: Float,
+        elevationDeg: Float,
+        bitmap: android.graphics.Bitmap? = null,
+        dominantColorHex: Long = 0xFFD4AF37,
+        luminance: Float = 0.5f,
+        sharpness: Float = 0.85f
+    ): CapturedPhoto {
         val photo = CapturedPhoto(
-            id = "photo_${System.currentTimeMillis()}",
+            id = "photo_${System.currentTimeMillis()}_${(100..999).random()}",
             angleDeg = angleDeg,
-            elevationDeg = elevationDeg
+            elevationDeg = elevationDeg,
+            thumbnailBitmap = bitmap,
+            luminance = luminance,
+            sharpness = sharpness,
+            dominantColorHex = dominantColorHex
         )
         val updated = _capturedPhotos.value + photo
         _capturedPhotos.value = updated
         updateQualityMetrics(updated)
         return photo
+    }
+
+    fun removePhoto(id: String) {
+        val updated = _capturedPhotos.value.filterNot { it.id == id }
+        _capturedPhotos.value = updated
+        updateQualityMetrics(updated)
     }
 
     fun addBatchPhotos(count: Int) {
